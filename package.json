@@ -1,0 +1,35 @@
+{
+  "name": "linkstash",
+  "version": "1.0.0",
+  "description": "Zero-friction personal link bookmarking with keyword search",
+  "main": "process.js",
+  "scripts": {
+    "test": "npx jest",
+    "dev": "node process.js",
+    "process": "node process.js"
+  },
+  "keywords": [
+    "bookmarks",
+    "links",
+    "metadata",
+    "search",
+    "static-site"
+  ],
+  "author": "",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/user/linkstash"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "dependencies": {
+    "cheerio": "^1.0.0-rc.12",
+    "node-fetch": "^3.3.2",
+    "uuid": "^9.0.1"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0"
+  }
+}
