@@ -112,30 +112,42 @@
                 return;
             }
 
-            countEl.textContent = `Showing ${links.length} link${links.length !== 1 ? 's' : ''}`;
+            countEl.textContent = 'Showing ' + links.length + ' link' + (links.length !== 1 ? 's' : '');
 
-            grid.innerHTML = links.map(link => \`
-                <a href="\${escapeHtml(link.url)}" class="link-card" target="_blank" rel="noopener">
-                    \${link.image ? \`<img src="\${escapeHtml(link.image)}" alt="" class="link-image" loading="lazy">\` : ''}
-                    <div class="link-content">
-                        <div class="link-title">\${escapeHtml(link.title || link.url)}</div>
-                        \${link.description ? \`<div class="link-description">\${escapeHtml(link.description)}</div>\` : ''}
-                        <div class="link-meta">
-                            <span class="link-source">\${escapeHtml(link.source || 'web')}</span>
-                            \${link.author ? \`<span>• \${escapeHtml(link.author)}</span>\` : ''}
-                        </div>
-                    </div>
-                </a>
-            \`).join('');
+            var html = '';
+            for (var i = 0; i < links.length; i++) {
+                var link = links[i];
+                var imageHtml = link.image ? '<img src="' + escapeHtml(link.image) + '" alt="" class="link-image" loading="lazy">' : '';
+                var descHtml = link.description ? '<div class="link-description">' + escapeHtml(link.description) + '</div>' : '';
+                var authorHtml = link.author ? '<span> • ' + escapeHtml(link.author) + '</span>' : '';
+                
+                html += '<a href="' + escapeHtml(link.url) + '" class="link-card" target="_blank" rel="noopener">' +
+                    imageHtml +
+                    '<div class="link-content">' +
+                        '<div class="link-title">' + escapeHtml(link.title || link.url) + '</div>' +
+                        descHtml +
+                        '<div class="link-meta">' +
+                            '<span class="link-source">' + escapeHtml(link.source || 'web') + '</span>' +
+                            authorHtml +
+                        '</div>' +
+                    '</div>' +
+                '</a>';
+            }
+            grid.innerHTML = html;
         }
 
-        document.getElementById('search').addEventListener('input', (e) => {
-            const query = e.target.value.trim().toLowerCase();
-            renderLinks(query ? allLinks.filter(link =>
-                (link.title || '').toLowerCase().includes(query) ||
-                (link.description || '').toLowerCase().includes(query) ||
-                (link.url || '').toLowerCase().includes(query)
-            ) : allLinks);
+        document.getElementById('search').addEventListener('input', function(e) {
+            var query = e.target.value.trim().toLowerCase();
+            if (!query) {
+                renderLinks(allLinks);
+                return;
+            }
+            var filtered = allLinks.filter(function(link) {
+                return (link.title || '').toLowerCase().includes(query) ||
+                       (link.description || '').toLowerCase().includes(query) ||
+                       (link.url || '').toLowerCase().includes(query);
+            });
+            renderLinks(filtered);
         });
 
         loadLinks();
