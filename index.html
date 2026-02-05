@@ -1,156 +1,416 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LinkStash - Personal Link Bookmarks</title>
-    <style>
-        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background-color: #f5f5f7;
-            color: #1d1d1f;
-            line-height: 1.5;
-            min-height: 100vh;
-        }
-        .container { max-width: 1400px; margin: 0 auto; padding: 2rem 1rem; }
-        header { text-align: center; margin-bottom: 2rem; }
-        h1 { font-size: 2.5rem; font-weight: 700; margin-bottom: 0.5rem; }
-        .subtitle { color: #86868b; font-size: 1.1rem; }
-        .search-container { max-width: 600px; margin: 0 auto 2rem; }
-        #search {
-            width: 100%;
-            padding: 1rem 1.5rem;
-            font-size: 1.1rem;
-            border: none;
-            border-radius: 12px;
-            background-color: #fff;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        }
-        #search:focus { outline: none; box-shadow: 0 0 0 4px rgba(0,122,255,0.15); }
-        .results-count { text-align: center; color: #86868b; margin-bottom: 1.5rem; font-size: 0.875rem; }
-        .links-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-            gap: 1.25rem;
-        }
-        .link-card {
-            background: #fff;
-            border-radius: 16px;
-            overflow: hidden;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-            transition: transform 0.2s, box-shadow 0.2s;
-            text-decoration: none;
-            color: inherit;
-            display: flex;
-            flex-direction: column;
-        }
-        .link-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.12); }
-        .link-image {
-            width: 100%;
-            height: 180px;
-            object-fit: cover;
-            background-color: #f5f5f7;
-        }
-        .link-content { padding: 1.25rem; flex: 1; display: flex; flex-direction: column; }
-        .link-title { font-size: 1.1rem; font-weight: 600; margin-bottom: 0.5rem; line-height: 1.3; }
-        .link-description { font-size: 0.875rem; color: #86868b; line-height: 1.4; margin-bottom: 0.75rem; }
-        .link-meta { display: flex; align-items: center; gap: 0.5rem; margin-top: auto; font-size: 0.75rem; color: #a1a1a6; }
-        .link-source { font-weight: 500; color: #007aff; }
-        .empty-state { text-align: center; padding: 4rem 2rem; color: #86868b; }
-        .empty-state h2 { font-size: 1.5rem; margin-bottom: 0.5rem; color: #1d1d1f; }
-        @media (prefers-color-scheme: dark) {
-            body { background-color: #000; color: #f5f5f7; }
-            .link-card { background-color: #1c1c1e; }
-        }
-        @media (max-width: 640px) {
-            .links-grid { grid-template-columns: 1fr; }
-            h1 { font-size: 2rem; }
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LinkStash - Personal Link Bookmarks</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #f5f5f7; color: #1d1d1f; line-height: 1.5; min-height: 100vh; }
+.container { max-width: 1400px; margin: 0 auto; padding: 2rem 1rem; }
+header { text-align: center; margin-bottom: 2rem; position: relative; }
+h1 { font-size: 2.5rem; font-weight: 700; margin-bottom: 0.5rem; }
+.subtitle { color: #86868b; font-size: 1.1rem; }
+.add-links-btn { position: absolute; top: 0; right: 1rem; background: #007aff; color: #fff; border: none; padding: 0.75rem 1.5rem; border-radius: 8px; font-size: 1rem; font-weight: 600; cursor: pointer; transition: background 0.2s; }
+.add-links-btn:hover { background: #0051d5; }
+.queue-badge { background: #ff3b30; color: #fff; font-size: 0.75rem; padding: 0.25rem 0.5rem; border-radius: 10px; margin-left: 0.5rem; }
+.queue-badge.hidden { display: none; }
+.modal-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.5); backdrop-filter: blur(4px); z-index: 1000; align-items: center; justify-content: center; animation: fadeIn 0.2s; }
+.modal-overlay.active { display: flex; }
+.modal-container { background: #fff; border-radius: 16px; width: 90%; max-width: 600px; max-height: 80vh; overflow: hidden; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3); animation: slideUp 0.3s; }
+.modal-header { display: flex; justify-content: space-between; align-items: center; padding: 1.5rem; border-bottom: 1px solid #e5e5e7; }
+.modal-header h2 { font-size: 1.5rem; font-weight: 600; }
+.modal-close { background: none; border: none; font-size: 1.5rem; color: #86868b; cursor: pointer; padding: 0; width: 32px; height: 32px; border-radius: 50%; transition: background 0.2s; }
+.modal-close:hover { background: #e5e5e7; }
+.modal-body { padding: 1.5rem; }
+.modal-body textarea { width: 100%; min-height: 150px; padding: 1rem; border: 1px solid #e5e5e7; border-radius: 8px; font-size: 1rem; font-family: inherit; resize: vertical; }
+.modal-body textarea:focus { outline: none; border-color: #007aff; box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.1); }
+.modal-footer { padding: 1.5rem; border-top: 1px solid #e5e5e7; display: flex; gap: 1rem; justify-content: flex-end; }
+.btn { padding: 0.75rem 1.5rem; border-radius: 8px; font-size: 1rem; font-weight: 600; cursor: pointer; border: none; transition: all 0.2s; }
+.btn-secondary { background: #e5e5e7; color: #1d1d1f; }
+.btn-secondary:hover { background: #d1d1d6; }
+.btn-primary { background: #007aff; color: #fff; }
+.btn-primary:hover { background: #0051d5; }
+.search-container { max-width: 600px; margin: 0 auto 2rem; }
+#search { width: 100%; padding: 1rem 1.5rem; font-size: 1.1rem; border: none; border-radius: 12px; background-color: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+#search:focus { outline: none; box-shadow: 0 0 0 4px rgba(0,122,255,0.15); }
+.results-count { text-align: center; color: #86868b; margin-bottom: 1.5rem; font-size: 0.875rem; }
+.links-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 1.25rem; }
+.link-card { background: #fff; border-radius: 16px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.08); transition: transform 0.2s, box-shadow 0.2s; text-decoration: none; color: inherit; display: flex; flex-direction: column; }
+.link-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.12); }
+.link-image { width: 100%; height: 180px; object-fit: cover; background-color: #f5f5f7; }
+.link-content { padding: 1.25rem; flex: 1; display: flex; flex-direction: column; }
+.link-title { font-size: 1.1rem; font-weight: 600; margin-bottom: 0.5rem; line-height: 1.3; }
+.link-description { font-size: 0.875rem; color: #86868b; line-height: 1.4; margin-bottom: 0.75rem; }
+.link-meta { display: flex; align-items: center; gap: 0.5rem; margin-top: auto; font-size: 0.75rem; color: #a1a1a6; }
+.link-source { font-weight: 500; color: #007aff; }
+.empty-state { text-align: center; padding: 4rem 2rem; color: #86868b; }
+.empty-state h2 { font-size: 1.5rem; margin-bottom: 0.5rem; color: #1d1d1f; }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+@media (prefers-color-scheme: dark) { body { background-color: #000; color: #f5f5f7; } .link-card, .modal-container { background-color: #1c1c1e; } .modal-header, .modal-footer { border-color: #38383a; } .modal-body textarea { background: #2c2c2e; color: #f5f5f7; border-color: #38383a; } .btn-secondary { background: #38383a; color: #f5f5f7; } .btn-secondary:hover { background: #48484a; } #search { background: #1c1c1e; color: #f5f5f7; } }
+@media (max-width: 640px) { .links-grid { grid-template-columns: 1fr; } h1 { font-size: 2rem; } .add-links-btn { position: static; margin: 1rem auto 0; display: block; } }
+</style>
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1>LinkStash 📚</h1>
-            <p class="subtitle">Personal link bookmarks with instant search</p>
-        </header>
-        <div class="search-container">
-            <input type="text" id="search" placeholder="Search links..." autocomplete="off">
-        </div>
-        <div class="results-count" id="resultsCount"></div>
-        <div class="links-grid" id="linksGrid"></div>
-    </div>
+<div class="container">
+<header>
+<h1>LinkStash 📚</h1>
+<p class="subtitle">Personal link bookmarks with instant search</p>
+<button class="add-links-btn" onclick="openModal()">
+Add Links
+<span class="queue-badge hidden" id="queueBadge">0</span>
+</button>
+</header>
+<div class="search-container">
+<input type="text" id="search" placeholder="Search links..." autocomplete="off">
+</div>
+<div class="results-count" id="resultsCount"></div>
+<div class="links-grid" id="linksGrid"></div>
+</div>
 
-    <script>
-        let allLinks = [];
+<div class="modal-overlay" id="modalOverlay" onclick="closeModalOnBackdrop(event)">
+<div class="modal-container" onclick="event.stopPropagation()">
+<div class="modal-header">
+<h2>Add Links</h2>
+<button class="modal-close" onclick="closeModal()">&times;</button>
+</div>
+<div class="modal-body">
+<textarea id="urlInput" placeholder="Paste URLs here (one per line)..."></textarea>
+</div>
+<div class="modal-footer">
+<button class="btn btn-secondary" onclick="queueLinks()">Queue</button>
+<button class="btn btn-primary" onclick="importNow()">Import Now</button>
+</div>
+</div>
+</div>
+<script>
+const CONFIG = {
+GIST_ID: '176ceee71c072bb486b5c3dd526c512c',
+GITHUB_PAT: '' // Add your GitHub Personal Access Token here (keep it private!)
+};
 
-        async function loadLinks() {
-            try {
-                const response = await fetch('links.json');
-                allLinks = await response.json();
-                allLinks.sort((a, b) => new Date(b.added) - new Date(a.added));
-                renderLinks(allLinks);
-            } catch (err) {
-                document.getElementById('linksGrid').innerHTML = '<div class="empty-state"><h2>Could not load links</h2></div>';
-            }
-        }
+let allLinks = [];
+let queue = JSON.parse(localStorage.getItem('linkstash-queue') || '[]');
 
-        function escapeHtml(text) {
-            const div = document.createElement('div');
-            div.textContent = text || '';
-            return div.innerHTML;
-        }
+async function loadLinksFromGist() {
+try {
+const response = await fetch(`https://api.github.com/gists/${CONFIG.GIST_ID}`);
+if (!response.ok) throw new Error('Failed to fetch gist');
+const gist = await response.json();
+const linksFile = gist.files['links.json'];
+if (!linksFile) throw new Error('links.json not found in gist');
+return JSON.parse(linksFile.content);
+} catch (err) {
+console.error('Error loading from Gist:', err);
+return null;
+}
+}
 
-        function renderLinks(links) {
-            const grid = document.getElementById('linksGrid');
-            const countEl = document.getElementById('resultsCount');
+async function saveLinksToGist(links) {
+try {
+const response = await fetch(`https://api.github.com/gists/${CONFIG.GIST_ID}`, {
+method: 'PATCH',
+headers: {
+'Authorization': `Bearer ${CONFIG.GITHUB_PAT}`,
+'Content-Type': 'application/json'
+},
+body: JSON.stringify({
+files: {
+'links.json': {
+content: JSON.stringify(links, null, 2)
+}
+}
+})
+});
+if (!response.ok) throw new Error('Failed to save gist');
+return true;
+} catch (err) {
+console.error('Error saving to Gist:', err);
+return false;
+}
+}
 
-            if (links.length === 0) {
-                grid.innerHTML = '<div class="empty-state" style="grid-column: 1 / -1;"><h2>No links found</h2></div>';
-                countEl.textContent = '';
-                return;
-            }
+async function loadLinks() {
+try {
+const gistLinks = await loadLinksFromGist();
+if (gistLinks) {
+allLinks = gistLinks;
+} else {
+const response = await fetch('links.json');
+allLinks = await response.json();
+}
+allLinks.sort((a, b) => new Date(b.added) - new Date(a.added));
+renderLinks(allLinks);
 
-            countEl.textContent = 'Showing ' + links.length + ' link' + (links.length !== 1 ? 's' : '');
+// Daily auto-process queue
+const lastProcessed = parseInt(localStorage.getItem('linkstash-last-processed') || '0');
+const now = Date.now();
+if (queue.length > 0 && (now - lastProcessed) > 86400000) {
+await processQueue();
+localStorage.setItem('linkstash-last-processed', now.toString());
+}
+} catch (err) {
+document.getElementById('linksGrid').innerHTML = '<div class="empty-state"><h2>Could not load links</h2></div>';
+}
+}
 
-            var html = '';
-            for (var i = 0; i < links.length; i++) {
-                var link = links[i];
-                var imageHtml = link.image ? '<img src="' + escapeHtml(link.image) + '" alt="" class="link-image" loading="lazy">' : '';
-                var descHtml = link.description ? '<div class="link-description">' + escapeHtml(link.description) + '</div>' : '';
-                var authorHtml = link.author ? '<span> • ' + escapeHtml(link.author) + '</span>' : '';
-                
-                html += '<a href="' + escapeHtml(link.url) + '" class="link-card" target="_blank" rel="noopener">' +
-                    imageHtml +
-                    '<div class="link-content">' +
-                        '<div class="link-title">' + escapeHtml(link.title || link.url) + '</div>' +
-                        descHtml +
-                        '<div class="link-meta">' +
-                            '<span class="link-source">' + escapeHtml(link.source || 'web') + '</span>' +
-                            authorHtml +
-                        '</div>' +
-                    '</div>' +
-                '</a>';
-            }
-            grid.innerHTML = html;
-        }
+function escapeHtml(text) {
+const div = document.createElement('div');
+div.textContent = text || '';
+return div.innerHTML;
+}
 
-        document.getElementById('search').addEventListener('input', function(e) {
-            var query = e.target.value.trim().toLowerCase();
-            if (!query) {
-                renderLinks(allLinks);
-                return;
-            }
-            var filtered = allLinks.filter(function(link) {
-                return (link.title || '').toLowerCase().includes(query) ||
-                       (link.description || '').toLowerCase().includes(query) ||
-                       (link.url || '').toLowerCase().includes(query);
-            });
-            renderLinks(filtered);
-        });
+function truncate(text, maxLength) {
+if (!text || text.length <= maxLength) return text;
+return text.substring(0, maxLength) + '...';
+}
 
-        loadLinks();
-    </script>
+function renderLinks(links) {
+const grid = document.getElementById('linksGrid');
+const countEl = document.getElementById('resultsCount');
+if (links.length === 0) {
+grid.innerHTML = '<div class="empty-state" style="grid-column: 1 / -1;"><h2>No links found</h2></div>';
+countEl.textContent = '';
+return;
+}
+countEl.textContent = 'Showing ' + links.length + ' link' + (links.length !== 1 ? 's' : '');
+var html = '';
+for (var i = 0; i < links.length; i++) {
+var link = links[i];
+var imageHtml = link.image ? '<img src="' + escapeHtml(link.image) + '" alt="" class="link-image" loading="lazy">' : '';
+    
+// Truncate title and description
+var fullTitle = link.title || link.url;
+var displayTitle = truncate(fullTitle, 100);
+var fullDesc = link.description || '';
+var displayDesc = truncate(fullDesc, 200);
+    
+var descHtml = link.description ? '<div class="link-description" title="' + escapeHtml(fullDesc) + '">' + escapeHtml(displayDesc) + '</div>' : '';
+var authorHtml = link.author ? '<span> • ' + escapeHtml(link.author) + '</span>' : '';
+    
+html += '<a href="' + escapeHtml(link.url) + '" class="link-card" target="_blank" rel="noopener">' +
+imageHtml +
+'<div class="link-content">' +
+'<div class="link-title" title="' + escapeHtml(fullTitle) + '">' + escapeHtml(displayTitle) + '</div>' +
+descHtml +
+'<div class="link-meta">' +
+'<span class="link-source">' + escapeHtml(link.source || 'web') + '</span>' +
+authorHtml +
+'</div>' +
+'</div>' +
+'</a>';
+}
+grid.innerHTML = html;
+}
+
+document.getElementById('search').addEventListener('input', function(e) {
+var query = e.target.value.trim().toLowerCase();
+if (!query) {
+renderLinks(allLinks);
+return;
+}
+var filtered = allLinks.filter(function(link) {
+return (link.title || '').toLowerCase().includes(query) ||
+(link.description || '').toLowerCase().includes(query) ||
+(link.url || '').toLowerCase().includes(query);
+});
+renderLinks(filtered);
+});
+
+// Modal functions
+function openModal() {
+document.getElementById('modalOverlay').classList.add('active');
+document.getElementById('urlInput').focus();
+}
+
+function closeModal() {
+document.getElementById('modalOverlay').classList.remove('active');
+document.getElementById('urlInput').value = '';
+}
+
+function closeModalOnBackdrop(event) {
+if (event.target === event.currentTarget) {
+closeModal();
+}
+}
+
+// ESC key to close modal
+document.addEventListener('keydown', function(e) {
+if (e.key === 'Escape') {
+closeModal();
+}
+});
+
+// Queue management
+function updateQueueBadge() {
+const badge = document.getElementById('queueBadge');
+if (queue.length > 0) {
+badge.textContent = queue.length;
+badge.classList.remove('hidden');
+} else {
+badge.classList.add('hidden');
+}
+}
+
+function queueLinks() {
+const input = document.getElementById('urlInput');
+const urls = input.value.split('\n').map(u => u.trim()).filter(u => u.length > 0);
+
+if (urls.length === 0) {
+alert('Please paste at least one URL');
+return;
+}
+  
+// Add to queue (avoid duplicates)
+urls.forEach(url => {
+if (!queue.includes(url) && !allLinks.some(link => link.url === url)) {
+queue.push(url);
+}
+});
+  
+localStorage.setItem('linkstash-queue', JSON.stringify(queue));
+updateQueueBadge();
+closeModal();
+}
+
+// Metadata extraction
+async function extractMetadata(url) {
+try {
+// Check if it's a Twitter/X URL
+const twitterRegex = /(?:twitter\.com|x\.com)\/\w+\/status\/(\d+)/;
+const twitterMatch = url.match(twitterRegex);
+    
+if (twitterMatch) {
+// Use fxtwitter API
+const fxUrl = url.replace(/(?:twitter\.com|x\.com)/, 'api.fxtwitter.com');
+const response = await fetch(fxUrl);
+      
+if (response.ok) {
+const data = await response.json();
+const tweet = data.tweet;
+        
+return {
+url: url,
+title: `${tweet.author.name} (@${tweet.author.screen_name})`,
+description: tweet.text,
+image: tweet.media?.photos?.[0]?.url || tweet.author.avatar_url || '',
+author: tweet.author.name,
+source: 'twitter'
+};
+}
+}
+    
+// For non-Twitter URLs, try to fetch OG tags via CORS proxy
+// Using allorigins.win as a CORS proxy
+const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
+const response = await fetch(proxyUrl);
+    
+if (!response.ok) throw new Error('Failed to fetch URL');
+    
+const data = await response.json();
+const html = data.contents;
+    
+// Parse OG tags from HTML
+const ogTitle = html.match(/<meta[^>]*property=["']og:title["'][^>]*content=["']([^"']*)["']/i);
+const ogDescription = html.match(/<meta[^>]*property=["']og:description["'][^>]*content=["']([^"']*)["']/i);
+const ogImage = html.match(/<meta[^>]*property=["']og:image["'][^>]*content=["']([^"']*)["']/i);
+    
+// Fallback to regular title tag
+const titleTag = html.match(/<title[^>]*>([^<]*)<\/title>/i);
+    
+return {
+url: url,
+title: (ogTitle?.[1] || titleTag?.[1] || url).trim(),
+description: (ogDescription?.[1] || '').trim(),
+image: (ogImage?.[1] || '').trim(),
+author: '',
+source: 'web'
+};
+  } catch (err) {
+console.error(`Error extracting metadata for ${url}:`, err);
+    
+// Return minimal object on error
+return {
+url: url,
+title: url,
+description: '',
+image: '',
+author: '',
+source: 'web'
+};
+}
+}
+
+async function processQueue(event) {
+const queueToProcess = [...queue]; // Copy the queue
+  
+if (queueToProcess.length === 0) {
+alert('Queue is empty');
+return;
+}
+  
+// Show loading state (only if called from button click)
+let importBtn, originalText;
+if (event && event.target) {
+importBtn = event.target;
+originalText = importBtn.textContent;
+importBtn.textContent = 'Importing...';
+importBtn.disabled = true;
+}
+  
+try {
+const newLinks = [];
+    
+// Process each URL
+for (const url of queueToProcess) {
+const metadata = await extractMetadata(url);
+      
+// Create link object with UUID
+const link = {
+id: crypto.randomUUID(),
+...metadata,
+added: new Date().toISOString()
+};
+      
+newLinks.push(link);
+}
+    
+// Add to existing links
+allLinks = [...newLinks, ...allLinks];
+    
+// Save to Gist
+await saveLinksToGist(allLinks);
+    
+// Clear queue
+queue = [];
+localStorage.setItem('linkstash-queue', JSON.stringify(queue));
+updateQueueBadge();
+    
+// Re-render
+renderLinks(allLinks);
+closeModal();
+    
+alert(`Successfully imported ${newLinks.length} link(s)!`);
+} catch (err) {
+console.error('Error processing queue:', err);
+alert('Error importing links. Check console for details.');
+} finally {
+if (importBtn) {
+importBtn.textContent = originalText;
+importBtn.disabled = false;
+}
+}
+}
+
+function importNow() {
+processQueue(event);
+}
+
+// Initialize badge on load
+updateQueueBadge();
+
+loadLinks();
+</script>
 </body>
 </html>
