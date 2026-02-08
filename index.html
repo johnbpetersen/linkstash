@@ -309,12 +309,17 @@ source: 'web'
 }
 
 // Normalize URL for comparison (strip trailing slash, lowercase hostname)
+// For Twitter/X URLs, strip query params (tracking codes like ?s=46)
 function normalizeUrl(url) {
 try {
 const u = new URL(url);
-// Lowercase hostname, remove trailing slash from pathname
-let normalized = u.protocol + '//' + u.hostname.toLowerCase() + u.pathname.replace(/\/$/, '') + u.search + u.hash;
-return normalized;
+const host = u.hostname.toLowerCase();
+// For Twitter/X, ignore query params entirely (they're just tracking)
+if (host.includes('twitter.com') || host.includes('x.com')) {
+return u.protocol + '//' + host + u.pathname.replace(/\/$/, '');
+}
+// For other URLs, keep query params but normalize
+return u.protocol + '//' + host + u.pathname.replace(/\/$/, '') + u.search + u.hash;
 } catch {
 return url.toLowerCase().replace(/\/$/, '');
 }
