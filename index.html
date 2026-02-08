@@ -308,6 +308,24 @@ source: 'web'
 }
 }
 
+// Normalize URL for comparison (strip trailing slash, lowercase hostname)
+function normalizeUrl(url) {
+try {
+const u = new URL(url);
+// Lowercase hostname, remove trailing slash from pathname
+let normalized = u.protocol + '//' + u.hostname.toLowerCase() + u.pathname.replace(/\/$/, '') + u.search + u.hash;
+return normalized;
+} catch {
+return url.toLowerCase().replace(/\/$/, '');
+}
+}
+
+// Check if URL already exists in links
+function isDuplicate(url) {
+const normalizedNew = normalizeUrl(url);
+return allLinks.some(link => normalizeUrl(link.url) === normalizedNew);
+}
+
 async function processQueue(event) {
 const queueToProcess = [...queue]; // Copy the queue
   
@@ -327,9 +345,16 @@ importBtn.disabled = true;
   
 try {
 const newLinks = [];
+let skipped = 0;
     
 // Process each URL
 for (const url of queueToProcess) {
+// Skip duplicates
+if (isDuplicate(url)) {
+skipped++;
+continue;
+}
+
 const metadata = await extractMetadata(url);
       
 // Create link object with UUID
@@ -342,7 +367,7 @@ added: new Date().toISOString()
 newLinks.push(link);
 }
     
-// Add to existing links
+// Add to existing links (only non-duplicates)
 allLinks = [...newLinks, ...allLinks];
     
 // Save to Worker (which saves to Gist)
@@ -357,7 +382,8 @@ updateQueueBadge();
 renderLinks(allLinks);
 closeModal();
     
-alert(`Successfully imported ${newLinks.length} link(s)!`);
+const skipMsg = skipped > 0 ? ` (${skipped} duplicate(s) skipped)` : '';
+alert(`Successfully imported ${newLinks.length} link(s)!${skipMsg}`);
 } catch (err) {
 console.error('Error processing queue:', err);
 alert('Error importing links. Check console for details.');
