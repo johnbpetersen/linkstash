@@ -86,56 +86,48 @@ Add Links
 </div>
 <script>
 const CONFIG = {
-GIST_ID: '176ceee71c072bb486b5c3dd526c512c',
-GITHUB_PAT: '' // Add your GitHub Personal Access Token here (keep it private!)
+WORKER_URL: 'https://linkstash.john-b-petersen.workers.dev'
 };
 
 let allLinks = [];
 let queue = JSON.parse(localStorage.getItem('linkstash-queue') || '[]');
 
-async function loadLinksFromGist() {
+async function loadLinksFromWorker() {
 try {
-const response = await fetch(`https://api.github.com/gists/${CONFIG.GIST_ID}`);
-if (!response.ok) throw new Error('Failed to fetch gist');
-const gist = await response.json();
-const linksFile = gist.files['links.json'];
-if (!linksFile) throw new Error('links.json not found in gist');
-return JSON.parse(linksFile.content);
+const response = await fetch(CONFIG.WORKER_URL + '/links');
+if (!response.ok) throw new Error('Failed to fetch links');
+const result = await response.json();
+if (!result.success) throw new Error(result.error || 'Unknown error');
+return result.data.links || [];
 } catch (err) {
-console.error('Error loading from Gist:', err);
+console.error('Error loading from Worker:', err);
 return null;
 }
 }
 
-async function saveLinksToGist(links) {
+async function saveLinksToWorker(links) {
 try {
-const response = await fetch(`https://api.github.com/gists/${CONFIG.GIST_ID}`, {
-method: 'PATCH',
+const response = await fetch(CONFIG.WORKER_URL + '/links', {
+method: 'POST',
 headers: {
-'Authorization': `Bearer ${CONFIG.GITHUB_PAT}`,
 'Content-Type': 'application/json'
 },
-body: JSON.stringify({
-files: {
-'links.json': {
-content: JSON.stringify(links, null, 2)
-}
-}
-})
+body: JSON.stringify({ links: links })
 });
-if (!response.ok) throw new Error('Failed to save gist');
-return true;
+if (!response.ok) throw new Error('Failed to save links');
+const result = await response.json();
+return result.success;
 } catch (err) {
-console.error('Error saving to Gist:', err);
+console.error('Error saving to Worker:', err);
 return false;
 }
 }
 
 async function loadLinks() {
 try {
-const gistLinks = await loadLinksFromGist();
-if (gistLinks) {
-allLinks = gistLinks;
+const workerLinks = await loadLinksFromWorker();
+if (workerLinks) {
+allLinks = workerLinks;
 } else {
 const response = await fetch('links.json');
 allLinks = await response.json();
@@ -274,60 +266,34 @@ updateQueueBadge();
 closeModal();
 }
 
-// Metadata extraction
+// Metadata extraction via Cloudflare Worker
 async function extractMetadata(url) {
 try {
-// Check if it's a Twitter/X URL
-const twitterRegex = /(?:twitter\.com|x\.com)\/\w+\/status\/(\d+)/;
-const twitterMatch = url.match(twitterRegex);
+const response = await fetch(CONFIG.WORKER_URL + '/process', {
+method: 'POST',
+headers: {
+'Content-Type': 'application/json'
+},
+body: JSON.stringify({ urls: [url] })
+});
     
-if (twitterMatch) {
-// Use fxtwitter API
-const fxUrl = url.replace(/(?:twitter\.com|x\.com)/, 'api.fxtwitter.com');
-const response = await fetch(fxUrl);
-      
-if (response.ok) {
-const data = await response.json();
-const tweet = data.tweet;
-        
-return {
-url: url,
-title: `${tweet.author.name} (@${tweet.author.screen_name})`,
-description: tweet.text,
-image: tweet.media?.photos?.[0]?.url || tweet.author.avatar_url || '',
-author: tweet.author.name,
-source: 'twitter'
-};
-}
+if (!response.ok) throw new Error('Failed to process URL');
+    
+const result = await response.json();
+if (!result.success || !result.data || result.data.length === 0) {
+throw new Error('No metadata returned');
 }
     
-// For non-Twitter URLs, try to fetch OG tags via CORS proxy
-// Using allorigins.win as a CORS proxy
-const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
-const response = await fetch(proxyUrl);
-    
-if (!response.ok) throw new Error('Failed to fetch URL');
-    
-const data = await response.json();
-const html = data.contents;
-    
-// Parse OG tags from HTML
-const ogTitle = html.match(/<meta[^>]*property=["']og:title["'][^>]*content=["']([^"']*)["']/i);
-const ogDescription = html.match(/<meta[^>]*property=["']og:description["'][^>]*content=["']([^"']*)["']/i);
-const ogImage = html.match(/<meta[^>]*property=["']og:image["'][^>]*content=["']([^"']*)["']/i);
-    
-// Fallback to regular title tag
-const titleTag = html.match(/<title[^>]*>([^<]*)<\/title>/i);
-    
+const meta = result.data[0];
 return {
-url: url,
-title: (ogTitle?.[1] || titleTag?.[1] || url).trim(),
-description: (ogDescription?.[1] || '').trim(),
-image: (ogImage?.[1] || '').trim(),
-author: '',
-source: 'web'
+url: meta.url,
+title: meta.title || url,
+description: meta.description || '',
+image: meta.image || '',
+author: meta.author || '',
+source: meta.type || 'web'
 };
-  } catch (err) {
+} catch (err) {
 console.error(`Error extracting metadata for ${url}:`, err);
     
 // Return minimal object on error
@@ -379,8 +345,8 @@ newLinks.push(link);
 // Add to existing links
 allLinks = [...newLinks, ...allLinks];
     
-// Save to Gist
-await saveLinksToGist(allLinks);
+// Save to Worker (which saves to Gist)
+await saveLinksToWorker(allLinks);
     
 // Clear queue
 queue = [];
